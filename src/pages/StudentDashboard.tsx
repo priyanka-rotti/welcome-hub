@@ -135,14 +135,6 @@ const StudentDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-foreground">Description</label>
-                  <Textarea
-                    placeholder="Add notes about your practice..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                </div>
-                <div>
                   <label className="text-sm font-medium text-foreground">Video File *</label>
                   <Input
                     type="file"
