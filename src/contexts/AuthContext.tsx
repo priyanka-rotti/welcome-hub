@@ -6,6 +6,7 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
+  role: string | null;
   signOut: () => Promise<void>;
 }
 
@@ -13,6 +14,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   user: null,
   loading: true,
+  role: null,
   signOut: async () => {},
 });
 
@@ -21,20 +23,38 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const fetchRole = async (userId: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('user_id', userId)
+      .single();
+    setRole(data?.role ?? null);
+  };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        if (session?.user) {
+          await fetchRole(session.user.id);
+        } else {
+          setRole(null);
+        }
         setLoading(false);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) {
+        await fetchRole(session.user.id);
+      }
       setLoading(false);
     });
 
@@ -46,7 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, role, signOut }}>
       {children}
     </AuthContext.Provider>
   );
