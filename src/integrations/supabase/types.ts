@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      feedback: {
+        Row: {
+          comments: string
+          created_at: string
+          id: string
+          student_id: string
+          teacher_id: string
+          video_id: string
+        }
+        Insert: {
+          comments: string
+          created_at?: string
+          id?: string
+          student_id: string
+          teacher_id: string
+          video_id: string
+        }
+        Update: {
+          comments?: string
+          created_at?: string
+          id?: string
+          student_id?: string
+          teacher_id?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           classes: string[]
@@ -47,6 +82,39 @@ export type Database = {
           student_name?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      videos: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+          video_url: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+          video_url: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          video_url?: string
         }
         Relationships: []
       }
