@@ -1,21 +1,26 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Upload, Video, MessageSquare, LogOut } from 'lucide-react';
+import { Video, MessageSquare, LogOut, Circle, Square } from 'lucide-react';
 
 const StudentDashboard = () => {
   const { user, signOut } = useAuth();
-  const [uploading, setUploading] = useState(false);
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const { data: videos, refetch: refetchVideos } = useQuery({
     queryKey: ['videos', user?.id],
@@ -43,20 +48,72 @@ const StudentDashboard = () => {
     enabled: !!user,
   });
 
-  const handleUpload = async () => {
-    if (!file || !title || !user) {
-      toast.error('Please provide a title and select a video file.');
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: true,
+      });
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+          ? 'video/webm;codecs=vp9'
+          : 'video/webm',
+      });
+      mediaRecorderRef.current = mediaRecorder;
+      chunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+        setRecordedBlob(blob);
+        setRecordedUrl(URL.createObjectURL(blob));
+        stream.getTracks().forEach((t) => t.stop());
+        if (videoRef.current) videoRef.current.srcObject = null;
+      };
+
+      mediaRecorder.start();
+      setRecording(true);
+      setRecordedBlob(null);
+      setRecordedUrl(null);
+    } catch (err) {
+      toast.error('Could not access camera. Please allow camera permissions.');
+    }
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    mediaRecorderRef.current?.stop();
+    setRecording(false);
+  }, []);
+
+  const discardRecording = () => {
+    setRecordedBlob(null);
+    if (recordedUrl) URL.revokeObjectURL(recordedUrl);
+    setRecordedUrl(null);
+  };
+
+  const handleSave = async () => {
+    if (!recordedBlob || !title || !user) {
+      toast.error('Please provide a title and record a video.');
       return;
     }
 
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${Date.now()}.webm`;
 
       const { error: uploadError } = await supabase.storage
         .from('videos')
-        .upload(filePath, file);
+        .upload(filePath, recordedBlob);
 
       if (uploadError) throw uploadError;
 
@@ -69,19 +126,17 @@ const StudentDashboard = () => {
         .insert({
           user_id: user.id,
           title,
-          description,
           video_url: urlData.publicUrl,
         });
 
       if (insertError) throw insertError;
 
-      toast.success('Video uploaded successfully!');
+      toast.success('Video saved successfully!');
       setTitle('');
-      setDescription('');
-      setFile(null);
+      discardRecording();
       refetchVideos();
     } catch (error: any) {
-      toast.error(error.message || 'Failed to upload video.');
+      toast.error(error.message || 'Failed to save video.');
     } finally {
       setUploading(false);
     }
@@ -102,11 +157,11 @@ const StudentDashboard = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6">
-        <Tabs defaultValue="upload" className="w-full">
+        <Tabs defaultValue="record" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="upload" className="flex items-center gap-2">
+            <TabsTrigger value="record" className="flex items-center gap-2">
               <Video className="h-4 w-4" />
-              Upload Videos
+              Record Video
             </TabsTrigger>
             <TabsTrigger value="feedback" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
@@ -114,15 +169,15 @@ const StudentDashboard = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="upload" className="space-y-6 mt-4">
+          <TabsContent value="record" className="space-y-6 mt-4">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Upload className="h-5 w-5 text-primary" />
-                  Upload Practice Video
+                  <Video className="h-5 w-5 text-primary" />
+                  Record Practice Video
                 </CardTitle>
                 <CardDescription>
-                  Record or upload your dance practice videos for teacher review.
+                  Use your camera to record your dance practice for teacher review.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -134,18 +189,63 @@ const StudentDashboard = () => {
                     onChange={(e) => setTitle(e.target.value)}
                   />
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-foreground">Video File *</label>
-                  <Input
-                    type="file"
-                    accept="video/*"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                    className="cursor-pointer"
-                  />
+
+                {/* Live preview / recorded preview */}
+                <div className="relative rounded-lg overflow-hidden bg-muted aspect-video">
+                  {recording && (
+                    <video
+                      ref={videoRef}
+                      muted
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                  {!recording && recordedUrl && (
+                    <video
+                      src={recordedUrl}
+                      controls
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                  {!recording && !recordedUrl && (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-muted-foreground text-sm">Camera preview will appear here</p>
+                    </div>
+                  )}
+                  {recording && (
+                    <div className="absolute top-3 left-3 flex items-center gap-1.5 rounded-full bg-destructive px-2.5 py-1">
+                      <Circle className="h-2.5 w-2.5 fill-destructive-foreground text-destructive-foreground animate-pulse" />
+                      <span className="text-xs font-medium text-destructive-foreground">REC</span>
+                    </div>
+                  )}
                 </div>
-                <Button onClick={handleUpload} disabled={uploading} className="w-full">
-                  {uploading ? 'Uploading...' : 'Upload Video'}
-                </Button>
+
+                {/* Controls */}
+                <div className="flex gap-3">
+                  {!recording && !recordedBlob && (
+                    <Button onClick={startRecording} className="w-full flex items-center gap-2">
+                      <Circle className="h-4 w-4" />
+                      Start Recording
+                    </Button>
+                  )}
+                  {recording && (
+                    <Button onClick={stopRecording} variant="destructive" className="w-full flex items-center gap-2">
+                      <Square className="h-4 w-4" />
+                      Stop Recording
+                    </Button>
+                  )}
+                  {!recording && recordedBlob && (
+                    <>
+                      <Button variant="outline" onClick={discardRecording} className="flex-1">
+                        Re-record
+                      </Button>
+                      <Button onClick={handleSave} disabled={uploading} className="flex-1">
+                        {uploading ? 'Saving...' : 'Save Video'}
+                      </Button>
+                    </>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -160,9 +260,6 @@ const StudentDashboard = () => {
                       <div className="flex items-start justify-between">
                         <div>
                           <h3 className="font-medium text-foreground">{video.title}</h3>
-                          {video.description && (
-                            <p className="text-sm text-muted-foreground mt-1">{video.description}</p>
-                          )}
                           <p className="text-xs text-muted-foreground mt-2">
                             {new Date(video.created_at).toLocaleDateString()}
                           </p>
@@ -211,7 +308,7 @@ const StudentDashboard = () => {
                   </div>
                 ) : (
                   <p className="text-center text-muted-foreground py-8">
-                    No feedback yet. Upload a practice video to get started!
+                    No feedback yet. Record a practice video to get started!
                   </p>
                 )}
               </CardContent>
