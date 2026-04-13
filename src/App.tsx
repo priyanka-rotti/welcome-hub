@@ -17,6 +17,18 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const RoleRouter = () => {
+  const { role, loading } = useAuth();
+  if (loading) return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
+  if (role === 'student') return <StudentDashboard />;
+  // Teachers will get their own dashboard later; for now show a placeholder
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <p className="text-muted-foreground">Teacher dashboard coming soon.</p>
+    </div>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -26,7 +38,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
+            <Route path="/" element={<ProtectedRoute><RoleRouter /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
