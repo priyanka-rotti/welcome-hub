@@ -20,34 +20,20 @@ export type Database = {
           created_at: string
           id: string
           student_id: string
-          teacher_id: string
-          video_id: string
         }
         Insert: {
           comments: string
           created_at?: string
           id?: string
           student_id: string
-          teacher_id: string
-          video_id: string
         }
         Update: {
           comments?: string
           created_at?: string
           id?: string
           student_id?: string
-          teacher_id?: string
-          video_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "feedback_video_id_fkey"
-            columns: ["video_id"]
-            isOneToOne: false
-            referencedRelation: "videos"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
