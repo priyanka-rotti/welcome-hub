@@ -4,19 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Upload, BarChart3, LogOut, Trash2, Video, Music } from 'lucide-react';
+import { Upload, BarChart3, LogOut, Trash2, Video, Music, Plus } from 'lucide-react';
 
-const ADAVUS = Array.from({ length: 7 }, (_, i) => `Tattu Adavu ${i + 1}`);
+const DEFAULT_ADAVUS = Array.from({ length: 7 }, (_, i) => `Tattu Adavu ${i + 1}`);
 
 const TeacherDashboard = () => {
   const { user, signOut } = useAuth();
-  const [title, setTitle] = useState('');
-  const [type, setType] = useState<string>('');
+  const [adavus, setAdavus] = useState<string[]>(DEFAULT_ADAVUS);
+  const [selectedAdavu, setSelectedAdavu] = useState('');
+  const [newAdavu, setNewAdavu] = useState('');
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
 
   const { data: materials, refetch } = useQuery({
     queryKey: ['reference_materials', user?.id],
@@ -31,41 +34,65 @@ const TeacherDashboard = () => {
     enabled: !!user,
   });
 
+  const handleAddAdavu = () => {
+    const trimmed = newAdavu.trim();
+    if (!trimmed) return;
+    if (adavus.includes(trimmed)) {
+      toast.error('This adavu already exists.');
+      return;
+    }
+    setAdavus((prev) => [...prev, trimmed]);
+    setNewAdavu('');
+    toast.success(`Added "${trimmed}"`);
+  };
+
+  const uploadFile = async (file: File, type: string) => {
+    if (!user) throw new Error('Not authenticated');
+    const ext = file.name.split('.').pop();
+    const filePath = `${user.id}/${Date.now()}_${type}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('reference-materials')
+      .upload(filePath, file);
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage
+      .from('reference-materials')
+      .getPublicUrl(filePath);
+
+    const { error: insertError } = await supabase
+      .from('reference_materials')
+      .insert({
+        teacher_id: user.id,
+        title: selectedAdavu,
+        type,
+        file_url: urlData.publicUrl,
+      });
+    if (insertError) throw insertError;
+  };
+
   const handleUpload = async () => {
-    const file = fileInputRef.current?.files?.[0];
-    if (!file || !title || !type || !user) {
-      toast.error('Please fill in all fields and select a file.');
+    const videoFile = videoInputRef.current?.files?.[0];
+    const audioFile = audioInputRef.current?.files?.[0];
+
+    if (!selectedAdavu) {
+      toast.error('Please select an adavu.');
+      return;
+    }
+    if (!videoFile && !audioFile) {
+      toast.error('Please select at least one file to upload.');
       return;
     }
 
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const filePath = `${user.id}/${Date.now()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('reference-materials')
-        .upload(filePath, file);
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('reference-materials')
-        .getPublicUrl(filePath);
-
-      const { error: insertError } = await supabase
-        .from('reference_materials')
-        .insert({
-          teacher_id: user.id,
-          title,
-          type,
-          file_url: urlData.publicUrl,
-        });
-      if (insertError) throw insertError;
+      if (videoFile) await uploadFile(videoFile, 'reference_video');
+      if (audioFile) await uploadFile(audioFile, 'sollukattu_audio');
 
       toast.success('Uploaded successfully!');
-      setTitle('');
-      setType('');
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setSelectedAdavu('');
+      if (videoInputRef.current) videoInputRef.current.value = '';
+      if (audioInputRef.current) audioInputRef.current.value = '';
       refetch();
     } catch (error: any) {
       toast.error(error.message || 'Upload failed.');
@@ -76,7 +103,6 @@ const TeacherDashboard = () => {
 
   const handleDelete = async (id: string, fileUrl: string) => {
     try {
-      // Extract path from URL
       const urlParts = fileUrl.split('/reference-materials/');
       if (urlParts[1]) {
         await supabase.storage.from('reference-materials').remove([urlParts[1]]);
@@ -90,8 +116,13 @@ const TeacherDashboard = () => {
     }
   };
 
-  const videoMaterials = materials?.filter((m) => m.type === 'reference_video') || [];
-  const audioMaterials = materials?.filter((m) => m.type === 'sollukattu_audio') || [];
+  // Group materials by adavu title
+  const groupedMaterials = materials?.reduce((acc, m) => {
+    if (!acc[m.title]) acc[m.title] = { videos: [], audios: [] };
+    if (m.type === 'reference_video') acc[m.title].videos.push(m);
+    else if (m.type === 'sollukattu_audio') acc[m.title].audios.push(m);
+    return acc;
+  }, {} as Record<string, { videos: typeof materials; audios: typeof materials }>) || {};
 
   return (
     <div className="min-h-screen bg-background">
@@ -121,6 +152,30 @@ const TeacherDashboard = () => {
           </TabsList>
 
           <TabsContent value="upload" className="space-y-6 mt-4">
+            {/* Add Adavu */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Plus className="h-4 w-4 text-primary" />
+                  Add New Adavu
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="e.g. Natta Adavu 1"
+                    value={newAdavu}
+                    onChange={(e) => setNewAdavu(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddAdavu()}
+                  />
+                  <Button onClick={handleAddAdavu} variant="outline">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Upload Materials */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -131,12 +186,12 @@ const TeacherDashboard = () => {
               <CardContent className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-foreground">Adavu *</label>
-                  <Select value={title} onValueChange={setTitle}>
+                  <Select value={selectedAdavu} onValueChange={setSelectedAdavu}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select an adavu" />
                     </SelectTrigger>
                     <SelectContent>
-                      {ADAVUS.map((a) => (
+                      {adavus.map((a) => (
                         <SelectItem key={a} value={a}>{a}</SelectItem>
                       ))}
                     </SelectContent>
@@ -144,24 +199,27 @@ const TeacherDashboard = () => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-foreground">Type *</label>
-                  <Select value={type} onValueChange={setType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="reference_video">Reference Video</SelectItem>
-                      <SelectItem value="sollukattu_audio">Sollukattu Audio</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <Video className="h-4 w-4 text-primary" />
+                    Reference Video
+                  </label>
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/*"
+                    className="mt-1 block w-full text-sm text-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+                  />
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-foreground">File *</label>
+                  <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <Music className="h-4 w-4 text-primary" />
+                    Sollukattu Audio
+                  </label>
                   <input
-                    ref={fileInputRef}
+                    ref={audioInputRef}
                     type="file"
-                    accept={type === 'sollukattu_audio' ? 'audio/*' : 'video/*'}
+                    accept="audio/*"
                     className="mt-1 block w-full text-sm text-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
                   />
                 </div>
@@ -172,65 +230,42 @@ const TeacherDashboard = () => {
               </CardContent>
             </Card>
 
-            {/* Reference Videos */}
-            {videoMaterials.length > 0 && (
-              <Card>
+            {/* Uploaded Materials grouped by adavu */}
+            {Object.entries(groupedMaterials).map(([title, { videos, audios }]) => (
+              <Card key={title}>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Video className="h-5 w-5 text-primary" />
-                    Reference Videos
-                  </CardTitle>
+                  <CardTitle className="text-base">{title}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {videoMaterials.map((m) => (
-                    <div key={m.id} className="rounded-lg border border-border p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-medium text-foreground">{m.title}</h3>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(m.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
+                <CardContent className="space-y-4">
+                  {videos.map((m) => (
+                    <div key={m.id} className="rounded-lg border border-border p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                          <Video className="h-4 w-4 text-primary" /> Reference Video
+                        </span>
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(m.id, m.file_url)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
-                      <video src={m.file_url} controls className="mt-3 w-full rounded-md" />
+                      <video src={m.file_url} controls className="w-full rounded-md" />
                     </div>
                   ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Sollukattu Audio */}
-            {audioMaterials.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Music className="h-5 w-5 text-primary" />
-                    Sollukattu Audio
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {audioMaterials.map((m) => (
-                    <div key={m.id} className="rounded-lg border border-border p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="font-medium text-foreground">{m.title}</h3>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(m.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
+                  {audios.map((m) => (
+                    <div key={m.id} className="rounded-lg border border-border p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                          <Music className="h-4 w-4 text-primary" /> Sollukattu Audio
+                        </span>
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(m.id, m.file_url)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
-                      <audio src={m.file_url} controls className="mt-3 w-full" />
+                      <audio src={m.file_url} controls className="w-full" />
                     </div>
                   ))}
                 </CardContent>
               </Card>
-            )}
+            ))}
           </TabsContent>
 
           <TabsContent value="stats" className="mt-4">
