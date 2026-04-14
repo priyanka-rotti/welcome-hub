@@ -85,6 +85,33 @@ export type Database = {
         }
         Relationships: []
       }
+      reference_materials: {
+        Row: {
+          created_at: string
+          file_url: string
+          id: string
+          teacher_id: string
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          file_url: string
+          id?: string
+          teacher_id: string
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          file_url?: string
+          id?: string
+          teacher_id?: string
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
       videos: {
         Row: {
           created_at: string
