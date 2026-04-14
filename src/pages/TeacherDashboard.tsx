@@ -18,6 +18,8 @@ const TeacherDashboard = () => {
   const [selectedAdavu, setSelectedAdavu] = useState('');
   const [newAdavu, setNewAdavu] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [hasVideo, setHasVideo] = useState(false);
+  const [hasAudio, setHasAudio] = useState(false);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
 
@@ -91,6 +93,8 @@ const TeacherDashboard = () => {
 
       toast.success('Uploaded successfully!');
       setSelectedAdavu('');
+      setHasVideo(false);
+      setHasAudio(false);
       if (videoInputRef.current) videoInputRef.current.value = '';
       if (audioInputRef.current) audioInputRef.current.value = '';
       refetch();
@@ -203,12 +207,13 @@ const TeacherDashboard = () => {
                     <Video className="h-4 w-4 text-primary" />
                     Reference Video
                   </label>
-                  <input
-                    ref={videoInputRef}
-                    type="file"
-                    accept="video/*"
-                    className="mt-1 block w-full text-sm text-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
-                  />
+                    <input
+                      ref={videoInputRef}
+                      type="file"
+                      accept="video/*"
+                      onChange={(e) => setHasVideo(!!e.target.files?.length)}
+                      className="mt-1 block w-full text-sm text-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+                    />
                 </div>
 
                 <div>
@@ -216,15 +221,16 @@ const TeacherDashboard = () => {
                     <Music className="h-4 w-4 text-primary" />
                     Sollukattu Audio
                   </label>
-                  <input
-                    ref={audioInputRef}
-                    type="file"
-                    accept="audio/*"
-                    className="mt-1 block w-full text-sm text-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
-                  />
+                    <input
+                      ref={audioInputRef}
+                      type="file"
+                      accept="audio/*"
+                      onChange={(e) => setHasAudio(!!e.target.files?.length)}
+                      className="mt-1 block w-full text-sm text-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+                    />
                 </div>
 
-                <Button onClick={handleUpload} disabled={uploading} className="w-full">
+                <Button onClick={handleUpload} disabled={uploading || !selectedAdavu || !hasVideo || !hasAudio} className="w-full">
                   {uploading ? 'Uploading...' : 'Upload'}
                 </Button>
               </CardContent>
