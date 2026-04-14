@@ -294,9 +294,6 @@ const StudentDashboard = () => {
                   <MessageSquare className="h-5 w-5 text-primary" />
                   Feedback
                 </CardTitle>
-                <CardDescription>
-                  View feedback from your teacher on your practice videos.
-                </CardDescription>
               </CardHeader>
               <CardContent>
                 {feedback && feedback.length > 0 ? (
