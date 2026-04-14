@@ -10,13 +10,9 @@ import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Upload, BarChart3, LogOut, Trash2, Video, Music, Plus } from 'lucide-react';
 
-const DEFAULT_ADAVUS = Array.from({ length: 7 }, (_, i) => `Tattu Adavu ${i + 1}`);
-
 const TeacherDashboard = () => {
   const { user, signOut } = useAuth();
-  const [adavus, setAdavus] = useState<string[]>(DEFAULT_ADAVUS);
-  const [selectedAdavu, setSelectedAdavu] = useState('');
-  const [newAdavu, setNewAdavu] = useState('');
+  const [adavuName, setAdavuName] = useState('');
   const [uploading, setUploading] = useState(false);
   const [hasVideo, setHasVideo] = useState(false);
   const [hasAudio, setHasAudio] = useState(false);
@@ -35,18 +31,6 @@ const TeacherDashboard = () => {
     },
     enabled: !!user,
   });
-
-  const handleAddAdavu = () => {
-    const trimmed = newAdavu.trim();
-    if (!trimmed) return;
-    if (adavus.includes(trimmed)) {
-      toast.error('This adavu already exists.');
-      return;
-    }
-    setAdavus((prev) => [...prev, trimmed]);
-    setNewAdavu('');
-    toast.success(`Added "${trimmed}"`);
-  };
 
   const uploadFile = async (file: File, type: string) => {
     if (!user) throw new Error('Not authenticated');
