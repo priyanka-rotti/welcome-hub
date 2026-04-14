@@ -24,6 +24,7 @@ const Auth = () => {
   const [studentName, setStudentName] = useState('');
   const [parentName, setParentName] = useState('');
   const [role, setRole] = useState<string>('');
+  const [schoolName, setSchoolName] = useState('');
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
 
   useEffect(() => {
@@ -48,6 +49,10 @@ const Auth = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!schoolName.trim()) {
+      toast({ title: 'Dance school name is required', variant: 'destructive' });
+      return;
+    }
     if (!studentName.trim()) {
       toast({ title: 'Name of Student is required', variant: 'destructive' });
       return;
@@ -71,6 +76,7 @@ const Auth = () => {
           parent_name: parentName.trim(),
           role,
           classes: selectedClasses,
+          school_name: schoolName.trim(),
         },
       },
     });
@@ -103,6 +109,16 @@ const Auth = () => {
             <form onSubmit={isLogin ? handleLogin : handleSignUp} className="space-y-4">
               {!isLogin && (
                 <>
+                  <div className="space-y-2">
+                    <Label htmlFor="schoolName">Dance School Name *</Label>
+                    <Input
+                      id="schoolName"
+                      value={schoolName}
+                      onChange={(e) => setSchoolName(e.target.value)}
+                      required
+                      placeholder="Enter dance school name"
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="studentName">Name of Student *</Label>
                     <Input
