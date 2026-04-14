@@ -57,6 +57,7 @@ export type Database = {
           id: string
           parent_name: string | null
           role: Database["public"]["Enums"]["app_role"]
+          school_name: string
           student_name: string
           updated_at: string
           user_id: string
@@ -68,6 +69,7 @@ export type Database = {
           id?: string
           parent_name?: string | null
           role: Database["public"]["Enums"]["app_role"]
+          school_name?: string
           student_name: string
           updated_at?: string
           user_id: string
@@ -79,6 +81,7 @@ export type Database = {
           id?: string
           parent_name?: string | null
           role?: Database["public"]["Enums"]["app_role"]
+          school_name?: string
           student_name?: string
           updated_at?: string
           user_id?: string
