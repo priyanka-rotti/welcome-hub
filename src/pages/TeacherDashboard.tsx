@@ -3,12 +3,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Upload, BarChart3, LogOut, Trash2, Video, Music, Plus } from 'lucide-react';
+import { Upload, BarChart3, LogOut, Trash2, Video, Music } from 'lucide-react';
 
 const TeacherDashboard = () => {
   const { user, signOut } = useAuth();
@@ -32,7 +31,7 @@ const TeacherDashboard = () => {
     enabled: !!user,
   });
 
-  const uploadFile = async (file: File, type: string) => {
+  const uploadFile = async (file: File, title: string, type: string) => {
     if (!user) throw new Error('Not authenticated');
     const ext = file.name.split('.').pop();
     const filePath = `${user.id}/${Date.now()}_${type}.${ext}`;
@@ -50,7 +49,7 @@ const TeacherDashboard = () => {
       .from('reference_materials')
       .insert({
         teacher_id: user.id,
-        title: selectedAdavu,
+        title,
         type,
         file_url: urlData.publicUrl,
       });
@@ -60,23 +59,20 @@ const TeacherDashboard = () => {
   const handleUpload = async () => {
     const videoFile = videoInputRef.current?.files?.[0];
     const audioFile = audioInputRef.current?.files?.[0];
+    const trimmedName = adavuName.trim();
 
-    if (!selectedAdavu) {
-      toast.error('Please select an adavu.');
-      return;
-    }
-    if (!videoFile && !audioFile) {
-      toast.error('Please select at least one file to upload.');
+    if (!trimmedName || !videoFile || !audioFile) {
+      toast.error('Please fill in the adavu name and select both files.');
       return;
     }
 
     setUploading(true);
     try {
-      if (videoFile) await uploadFile(videoFile, 'reference_video');
-      if (audioFile) await uploadFile(audioFile, 'sollukattu_audio');
+      await uploadFile(videoFile, trimmedName, 'reference_video');
+      await uploadFile(audioFile, trimmedName, 'sollukattu_audio');
 
-      toast.success('Uploaded successfully!');
-      setSelectedAdavu('');
+      toast.success(`"${trimmedName}" uploaded successfully!`);
+      setAdavuName('');
       setHasVideo(false);
       setHasAudio(false);
       if (videoInputRef.current) videoInputRef.current.value = '';
@@ -140,82 +136,58 @@ const TeacherDashboard = () => {
           </TabsList>
 
           <TabsContent value="upload" className="space-y-6 mt-4">
-            {/* Add Adavu */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Plus className="h-4 w-4 text-primary" />
-                  Add New Adavu
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="e.g. Natta Adavu 1"
-                    value={newAdavu}
-                    onChange={(e) => setNewAdavu(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddAdavu()}
-                  />
-                  <Button onClick={handleAddAdavu} variant="outline">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Upload Materials */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Upload className="h-5 w-5 text-primary" />
-                  Upload Reference Material
+                  Add Adavu
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-foreground">Adavu *</label>
-                  <Select value={selectedAdavu} onValueChange={setSelectedAdavu}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select an adavu" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {adavus.map((a) => (
-                        <SelectItem key={a} value={a}>{a}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <label className="text-sm font-medium text-foreground">Adavu Name *</label>
+                  <Input
+                    placeholder="e.g. Natta Adavu 1"
+                    value={adavuName}
+                    onChange={(e) => setAdavuName(e.target.value)}
+                    className="mt-1"
+                  />
                 </div>
 
                 <div>
                   <label className="text-sm font-medium text-foreground flex items-center gap-2">
                     <Video className="h-4 w-4 text-primary" />
-                    Reference Video
+                    Reference Video *
                   </label>
-                    <input
-                      ref={videoInputRef}
-                      type="file"
-                      accept="video/*"
-                      onChange={(e) => setHasVideo(!!e.target.files?.length)}
-                      className="mt-1 block w-full text-sm text-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
-                    />
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => setHasVideo(!!e.target.files?.length)}
+                    className="mt-1 block w-full text-sm text-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+                  />
                 </div>
 
                 <div>
                   <label className="text-sm font-medium text-foreground flex items-center gap-2">
                     <Music className="h-4 w-4 text-primary" />
-                    Sollukattu Audio
+                    Sollukattu Audio *
                   </label>
-                    <input
-                      ref={audioInputRef}
-                      type="file"
-                      accept="audio/*"
-                      onChange={(e) => setHasAudio(!!e.target.files?.length)}
-                      className="mt-1 block w-full text-sm text-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
-                    />
+                  <input
+                    ref={audioInputRef}
+                    type="file"
+                    accept="audio/*"
+                    onChange={(e) => setHasAudio(!!e.target.files?.length)}
+                    className="mt-1 block w-full text-sm text-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+                  />
                 </div>
 
-                <Button onClick={handleUpload} disabled={uploading || !selectedAdavu || !hasVideo || !hasAudio} className="w-full">
-                  {uploading ? 'Uploading...' : 'Upload'}
+                <Button
+                  onClick={handleUpload}
+                  disabled={uploading || !adavuName.trim() || !hasVideo || !hasAudio}
+                  className="w-full"
+                >
+                  {uploading ? 'Uploading...' : 'Upload Adavu'}
                 </Button>
               </CardContent>
             </Card>
