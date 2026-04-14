@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import StudentDashboard from "./pages/StudentDashboard.tsx";
+import TeacherDashboard from "./pages/TeacherDashboard.tsx";
 import Auth from "./pages/Auth.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
@@ -21,10 +22,10 @@ const RoleRouter = () => {
   const { role, loading } = useAuth();
   if (loading) return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
   if (role === 'student') return <StudentDashboard />;
-  // Teachers will get their own dashboard later; for now show a placeholder
+  if (role === 'teacher') return <TeacherDashboard />;
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
-      <p className="text-muted-foreground">Teacher dashboard coming soon.</p>
+      <p className="text-muted-foreground">Loading...</p>
     </div>
   );
 };
