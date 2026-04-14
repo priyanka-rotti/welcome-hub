@@ -93,6 +93,8 @@ const TeacherDashboard = () => {
 
       toast.success('Uploaded successfully!');
       setSelectedAdavu('');
+      setHasVideo(false);
+      setHasAudio(false);
       if (videoInputRef.current) videoInputRef.current.value = '';
       if (audioInputRef.current) audioInputRef.current.value = '';
       refetch();
