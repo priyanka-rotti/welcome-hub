@@ -18,6 +18,8 @@ const TeacherDashboard = () => {
   const [selectedAdavu, setSelectedAdavu] = useState('');
   const [newAdavu, setNewAdavu] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [hasVideo, setHasVideo] = useState(false);
+  const [hasAudio, setHasAudio] = useState(false);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
 
