@@ -285,7 +285,7 @@ const StudentDashboard = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="h-5 w-5 text-primary" />
-                  Teacher Feedback
+                  Feedback
                 </CardTitle>
                 <CardDescription>
                   View feedback from your teacher on your practice videos.
