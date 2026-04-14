@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -183,11 +183,18 @@ const StudentDashboard = () => {
               <CardContent className="space-y-4">
                 <div>
                   <label className="text-sm font-medium text-foreground">Title *</label>
-                  <Input
-                    placeholder="e.g. Bharatanatyam Adavu Practice"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                  />
+                  <Select value={title} onValueChange={setTitle}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an adavu" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 7 }, (_, i) => (
+                        <SelectItem key={i + 1} value={`Tattu Adavu ${i + 1}`}>
+                          Tattu Adavu {i + 1}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Live preview / recorded preview */}
