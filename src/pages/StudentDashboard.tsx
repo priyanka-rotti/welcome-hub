@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Video, MessageSquare, LogOut, Circle, Square } from 'lucide-react';
+import { Video, MessageSquare, LogOut, Circle, Square, Music, Play, Pause } from 'lucide-react';
 
 const StudentDashboard = () => {
   const { user, signOut } = useAuth();
@@ -16,11 +16,65 @@ const StudentDashboard = () => {
   const [recording, setRecording] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
+  const [audioPlaying, setAudioPlaying] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Fetch available adavus from teacher-uploaded reference materials
+  const { data: availableAdavus } = useQuery({
+    queryKey: ['available_adavus'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('reference_materials')
+        .select('title')
+        .eq('type', 'sollukattu_audio');
+      if (error) throw error;
+      // Get unique titles
+      const unique = [...new Set(data.map((d) => d.title))];
+      return unique.sort();
+    },
+    enabled: !!user,
+  });
+
+  // Fetch the sollukattu audio for the selected adavu
+  const { data: sollukattuAudio } = useQuery({
+    queryKey: ['sollukattu_audio', title],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('reference_materials')
+        .select('*')
+        .eq('title', title)
+        .eq('type', 'sollukattu_audio')
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!title,
+  });
+
+  // Reset audio state when adavu changes
+  useEffect(() => {
+    setAudioPlaying(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+  }, [title]);
+
+  const toggleAudio = () => {
+    if (!audioRef.current) return;
+    if (audioPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setAudioPlaying(!audioPlaying);
+  };
 
   const { data: videos, refetch: refetchVideos } = useQuery({
     queryKey: ['videos', user?.id],
@@ -93,6 +147,12 @@ const StudentDashboard = () => {
   const stopRecording = useCallback(() => {
     mediaRecorderRef.current?.stop();
     setRecording(false);
+    // Stop audio if playing
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setAudioPlaying(false);
+    }
   }, []);
 
   const discardRecording = () => {
@@ -182,20 +242,57 @@ const StudentDashboard = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-foreground">Title *</label>
+                  <label className="text-sm font-medium text-foreground">Adavu *</label>
                   <Select value={title} onValueChange={setTitle}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select an adavu" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Array.from({ length: 7 }, (_, i) => (
-                        <SelectItem key={i + 1} value={`Tattu Adavu ${i + 1}`}>
-                          Tattu Adavu {i + 1}
+                      {availableAdavus?.map((adavu) => (
+                        <SelectItem key={adavu} value={adavu}>
+                          {adavu}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Sollukattu Audio Player */}
+                {title && sollukattuAudio && (
+                  <div className="rounded-lg border border-border bg-muted/50 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <Music className="h-4 w-4 text-primary" />
+                        Sollukattu Audio
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleAudio}
+                        className="flex items-center gap-1.5"
+                      >
+                        {audioPlaying ? (
+                          <><Pause className="h-3.5 w-3.5" /> Pause</>
+                        ) : (
+                          <><Play className="h-3.5 w-3.5" /> Play</>
+                        )}
+                      </Button>
+                    </div>
+                    <audio
+                      ref={audioRef}
+                      src={sollukattuAudio.file_url}
+                      onEnded={() => setAudioPlaying(false)}
+                      controls
+                      className="w-full h-8"
+                    />
+                  </div>
+                )}
+
+                {title && !sollukattuAudio && (
+                  <p className="text-sm text-muted-foreground italic">
+                    No sollukattu audio uploaded for this adavu yet.
+                  </p>
+                )}
 
                 {/* Live preview / recorded preview */}
                 <div className="relative rounded-lg overflow-hidden bg-muted aspect-video">
